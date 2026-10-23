@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0d6b5f">
+<meta name="theme-color" content="#1456c9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Frases">
@@ -13,17 +13,17 @@
 <style>
 /* Layout: sticky search + chip tabs on top; one column of phrase cards; full-screen "show staff" overlay with huge English text */
 :root{
-  --bg:#f1f5f6; --surface:#ffffff; --fg:#10242c; --muted:#53686f; --line:#d3dde0;
-  --accent:#0d6b5f; --accent-fg:#ffffff; --en-bg:#e3f1ee; --warn:#b3261e;
+  --bg:#f1f5fa; --surface:#ffffff; --fg:#10203a; --muted:#52657f; --line:#d3deec;
+  --accent:#1456c9; --accent-fg:#ffffff; --en-bg:#e1ecfb; --warn:#b3261e;
   --display:"Bricolage Grotesque","Trebuchet MS",sans-serif;
   --body:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0c1a1f; --surface:#14272e; --fg:#e6f0f2; --muted:#9bb2b9; --line:#25404a;
-  --accent:#4fd1b5; --accent-fg:#062a24; --en-bg:#0f3a38; --warn:#ff8a80; color-scheme:dark}}
+  --bg:#0b1626; --surface:#13233a; --fg:#e6eefb; --muted:#9db3cf; --line:#243a58;
+  --accent:#6aa8ff; --accent-fg:#06182e; --en-bg:#12315c; --warn:#ff8a80; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0c1a1f; --surface:#14272e; --fg:#e6f0f2; --muted:#9bb2b9; --line:#25404a;
-  --accent:#4fd1b5; --accent-fg:#062a24; --en-bg:#0f3a38; --warn:#ff8a80; color-scheme:dark}
+  --bg:#0b1626; --surface:#13233a; --fg:#e6eefb; --muted:#9db3cf; --line:#243a58;
+  --accent:#6aa8ff; --accent-fg:#06182e; --en-bg:#12315c; --warn:#ff8a80; color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{color-scheme:light dark}
@@ -486,7 +486,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 8 · 23 oct 2026");
+  f.append("Versión 9 · 23 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
@@ -510,7 +510,7 @@ renderTabs();render();
     root.setAttribute("data-theme",cur);
     btn.textContent=cur==="dark"?"Modo claro":"Modo oscuro";
     btn.setAttribute("aria-label",cur==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
-    var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",cur==="dark"?"#0c1a1f":"#f1f5f6");
+    var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",cur==="dark"?"#0b1626":"#f1f5fa");
   }
   btn.onclick=function(){cur=cur==="dark"?"light":"dark";try{localStorage.setItem(KEY,cur)}catch(e){}apply()};
   apply();
