@@ -110,6 +110,15 @@ dd{margin:0}
 
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
 .themebtn{flex:none;min-height:40px;padding:8px 12px;font-size:.85rem}
+
+.fxrow{display:flex;gap:8px;flex-wrap:wrap}
+.fxrow input,.fxrow select{font:inherit;padding:10px 12px;border:2px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);min-width:0}
+.fxrow input{flex:1 1 140px}
+.fxrow select{flex:1 1 140px}
+.fxres{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.fxres:first-of-type{border-top:0}
+.fxres b{font:800 1.3rem var(--display);overflow-wrap:anywhere;text-align:right}
+.fxres span{color:var(--muted)}
 </style>
 <div class="wrap">
 <header>
@@ -182,7 +191,7 @@ const GROUPS=[
 ["Emergencia","Necesito ayuda, es una emergencia.","I need help, it's an emergency."],
 ["Médico u hospital","¿Dónde hay un médico u hospital cercano?","Where is the nearest doctor or hospital?"]]}
 ];
-const TABS=[{id:"viaje",t:"Itinerario"},{id:"lugares",t:"Mapas y lugares"},{id:"ruta",t:"Frases por ciudad"},...GROUPS.map(g=>({id:g.id,t:g.t}))];
+const TABS=[{id:"viaje",t:"Itinerario"},{id:"lugares",t:"Mapas y lugares"},{id:"divisas",t:"Divisas"},{id:"ruta",t:"Frases por ciudad"},...GROUPS.map(g=>({id:g.id,t:g.t}))];
 const $=s=>document.querySelector(s), main=$("#main"), tabsEl=$("#tabs");
 const fills={}; let cur="viaje";
 try{cur=localStorage.getItem("fv-tab")||"viaje"}catch(e){}
@@ -252,6 +261,58 @@ function sosBlock(){
   [["112","Dinamarca y Suecia"],["112","Noruega: policía"],["113","Noruega: ambulancia"]].forEach(([n,t])=>{const b=el("div");b.append(el("b",null,n),el("span",null,t));d.append(b)});
   return d;
 }
+const FXC=[["EUR","Euro","Alemania y zona euro","€"],["USD","Dólar de EE. UU.","","US$"],["COP","Peso colombiano","","COP$"],["NOK","Corona noruega","Noruega","kr"],["DKK","Corona danesa","Dinamarca","kr"],["SEK","Corona sueca","Suecia","kr"]];
+const FX_FALLBACK={USD:1,EUR:0.92,COP:4000,NOK:10.8,DKK:6.9,SEK:10.2};
+const FXK="fv-fx";
+let FX={r:FX_FALLBACK,d:null,live:false},fxFrom="USD",fxAmt="100",fxLoading=false;
+try{const c=JSON.parse(localStorage.getItem(FXK)||"null");if(c&&c.r&&c.r.USD===1)FX={r:Object.assign({},FX_FALLBACK,c.r),d:c.d,live:false,cached:true}}catch(e){}
+function fxLoad(){
+  if(fxLoading)return;fxLoading=true;
+  fetch("https://open.er-api.com/v6/latest/USD").then(r=>r.json()).then(j=>{
+    if(!j||!j.rates)throw 0;
+    const r={USD:1};FXC.forEach(c=>{if(j.rates[c[0]])r[c[0]]=j.rates[c[0]]});
+    FX={r:Object.assign({},FX_FALLBACK,r),d:j.time_last_update_utc?new Date(j.time_last_update_utc).toISOString().slice(0,10):new Date().toISOString().slice(0,10),live:true};
+    try{localStorage.setItem(FXK,JSON.stringify({r:FX.r,d:FX.d}))}catch(e){}
+  }).catch(()=>{}).finally(()=>{fxLoading=false;if(cur==="divisas"&&!$("#q").value&&!document.activeElement.matches("input"))render();else if(cur==="divisas")fxPaint()});
+}
+const fxFmt=(v,cur)=>new Intl.NumberFormat("es-CO",{maximumFractionDigits:cur==="COP"?0:2,minimumFractionDigits:cur==="COP"?0:2}).format(v);
+function fxPaint(){
+  const box=document.getElementById("fxout"),st=document.getElementById("fxstat");if(!box)return;
+  let t=String(fxAmt).trim().replace(/\s/g,"");
+  if(t.includes(",")&&t.includes("."))t=t.replace(/\./g,"").replace(",",".");
+  else if(t.includes(","))t=t.replace(",",".");
+  else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,"");
+  const a=parseFloat(t)||0;
+  const base=a/FX.r[fxFrom];
+  box.replaceChildren();
+  FXC.filter(c=>c[0]!==fxFrom).forEach(c=>{
+    const row=el("div","fxres"),l=el("span",null,c[0]+" · "+c[1]);
+    row.append(l,el("b",null,fxFmt(base*FX.r[c[0]],c[0])+" "+c[0]));box.append(row);
+  });
+  st.textContent=FX.live?"Tasas en vivo, actualizadas el "+FX.d+".":FX.cached?"Sin internet: tasas guardadas del "+FX.d+".":"Sin internet: tasas aproximadas de referencia, no exactas.";
+}
+function fxView(){
+  main.append(el("h2",null,"Convertidor de divisas"));
+  main.append(el("p","note","Euro, dólar, peso colombiano y las coronas de Noruega, Dinamarca y Suecia. Úsalo para tener una idea de precios; el banco o la tarjeta cobran su propia tasa."));
+  const c=el("div","card"),r=el("div","fxrow");
+  const inp=document.createElement("input");inp.id="fx-amt";inp.type="text";inp.inputMode="decimal";inp.value=fxAmt;inp.setAttribute("aria-label","Monto");
+  const sel=document.createElement("select");sel.id="fx-from";sel.setAttribute("aria-label","Moneda de origen");
+  FXC.forEach(x=>{const o=document.createElement("option");o.value=x[0];o.textContent=x[0]+" · "+x[1]+(x[2]?" ("+x[2]+")":"");if(x[0]===fxFrom)o.selected=true;sel.append(o)});
+  inp.oninput=()=>{fxAmt=inp.value;fxPaint()};sel.onchange=()=>{fxFrom=sel.value;fxPaint()};
+  r.append(inp,sel);c.append(r);
+  const out=el("div");out.id="fxout";c.append(out);
+  const st=el("p","note");st.id="fxstat";c.append(st);
+  c.append(btn("Actualizar tasas",()=>{fxLoad();toast("Buscando tasas…")}));
+  main.append(c);
+  const q=el("div","card");q.append(el("div","lbl","Referencia rápida"));
+  const dl=el("dl");
+  dl.append(el("dt",null,"Dinamarca"),el("dd",null,"Corona danesa (DKK). Casi todo se paga con tarjeta."));
+  dl.append(el("dt",null,"Suecia"),el("dd",null,"Corona sueca (SEK). Casi no se usa efectivo; muchos sitios no lo reciben."));
+  dl.append(el("dt",null,"Noruega"),el("dd",null,"Corona noruega (NOK). También se paga casi todo con tarjeta."));
+  q.append(dl);main.append(q);
+  fxPaint();
+  if(!FX.live)fxLoad();
+}
 function render(){
   main.replaceChildren();
   const q=$("#q").value.trim().toLowerCase();
@@ -264,6 +325,7 @@ function render(){
   }
   if(cur==="viaje"){itinerary();return}
   if(cur==="lugares"){placesView();return}
+  if(cur==="divisas"){fxView();return}
   if(cur==="ruta"){
     main.append(el("p","note","Una tarjeta por ciudad: hotel, cómo llegar a la estación y qué decir para comprar el siguiente trayecto. Las fechas son las del itinerario actual."));
     const lp=el("div","pickers");
@@ -486,7 +548,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 10 · 23 oct 2026");
+  f.append("Versión 11 · 27 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
