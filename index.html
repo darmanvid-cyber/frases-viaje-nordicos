@@ -333,7 +333,14 @@ function chunks(text,max){
   text.split(/\n+/).forEach(l=>{l=l.trim();if(!l)return;if(cur&&(cur+"\n"+l).length>max){out.push(cur);cur=""}cur=cur?cur+"\n"+l:l;while(cur.length>max){out.push(cur.slice(0,max));cur=cur.slice(max)}});
   if(cur)out.push(cur);return out;
 }
-async function trad(text,from){
+async function tradG(text,from){
+  const r=await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl="+encodeURIComponent(from==="Autodetect"?"auto":from)+"&tl=es&q="+encodeURIComponent(text));
+  if(!r.ok)throw new Error("tr");
+  const j=await r.json();
+  if(!Array.isArray(j[0]))throw new Error("tr");
+  return j[0].map(x=>x[0]||"").join("");
+}
+async function tradM(text,from){
   const parts=chunks(text,450),res=[];
   for(const t of parts){
     const r=await fetch("https://api.mymemory.translated.net/get?q="+encodeURIComponent(t)+"&langpair="+encodeURIComponent(from+"|es"));
@@ -342,6 +349,9 @@ async function trad(text,from){
     res.push(j.responseData.translatedText);
   }
   return res.join("\n");
+}
+async function trad(text,from){
+  try{return await tradG(text,from)}catch(e){return tradM(text,from)}
 }
 function photoView(){
   main.append(el("h2",null,"Foto → español"));
@@ -624,7 +634,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 12 · 29 oct 2026");
+  f.append("Versión 13 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
