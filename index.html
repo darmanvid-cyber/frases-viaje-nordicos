@@ -191,7 +191,7 @@ const GROUPS=[
 ["Emergencia","Necesito ayuda, es una emergencia.","I need help, it's an emergency."],
 ["Médico u hospital","¿Dónde hay un médico u hospital cercano?","Where is the nearest doctor or hospital?"]]}
 ];
-const TABS=[{id:"viaje",t:"Itinerario"},{id:"lugares",t:"Mapas y lugares"},{id:"divisas",t:"Divisas"},{id:"ruta",t:"Frases por ciudad"},...GROUPS.map(g=>({id:g.id,t:g.t}))];
+const TABS=[{id:"viaje",t:"Itinerario"},{id:"lugares",t:"Mapas y lugares"},{id:"divisas",t:"Divisas"},{id:"foto",t:"Foto"},{id:"ruta",t:"Frases por ciudad"},...GROUPS.map(g=>({id:g.id,t:g.t}))];
 const $=s=>document.querySelector(s), main=$("#main"), tabsEl=$("#tabs");
 const fills={}; let cur="viaje";
 try{cur=localStorage.getItem("fv-tab")||"viaje"}catch(e){}
@@ -313,6 +313,81 @@ function fxView(){
   fxPaint();
   if(!FX.live)fxLoad();
 }
+const PH_LANGS=[["auto","Auto","dan+swe+nor+eng","Autodetect"],["da","Danés","dan","da"],["sv","Sueco","swe","sv"],["no","Noruego","nor","no"],["en","Inglés","eng","en"]];
+let phLang="auto",phBusy=false,tessP=null;
+function loadTess(){
+  if(window.Tesseract)return Promise.resolve();
+  if(!tessP)tessP=new Promise((ok,ko)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";s.onload=ok;s.onerror=()=>{tessP=null;ko(new Error("cdn"))};document.head.append(s)});
+  return tessP;
+}
+function shrink(file){
+  return new Promise((ok,ko)=>{
+    const url=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{const k=Math.min(1,1800/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(url);c.toBlob(b=>b?ok(b):ko(new Error("img")),"image/jpeg",.9)};
+    im.onerror=()=>{URL.revokeObjectURL(url);ko(new Error("img"))};
+    im.src=url;
+  });
+}
+function chunks(text,max){
+  const out=[];let cur="";
+  text.split(/\n+/).forEach(l=>{l=l.trim();if(!l)return;if(cur&&(cur+"\n"+l).length>max){out.push(cur);cur=""}cur=cur?cur+"\n"+l:l;while(cur.length>max){out.push(cur.slice(0,max));cur=cur.slice(max)}});
+  if(cur)out.push(cur);return out;
+}
+async function trad(text,from){
+  const parts=chunks(text,450),res=[];
+  for(const t of parts){
+    const r=await fetch("https://api.mymemory.translated.net/get?q="+encodeURIComponent(t)+"&langpair="+encodeURIComponent(from+"|es"));
+    const j=await r.json();
+    if(!j.responseData||j.responseStatus&&Number(j.responseStatus)!==200)throw new Error("tr");
+    res.push(j.responseData.translatedText);
+  }
+  return res.join("\n");
+}
+function photoView(){
+  main.append(el("h2",null,"Foto → español"));
+  main.append(el("p","note","Toma una foto a un letrero, menú o cartel y se traduce al español. Elige el idioma del texto, o déjalo en Auto. Necesita internet; la primera vez descarga el lector de texto de cada idioma."));
+  const c=el("div","card"),pick=el("div","pickers");
+  PH_LANGS.forEach(([k,n])=>{const b=el("button","tab",n);b.type="button";b.setAttribute("aria-pressed",String(k===phLang));b.onclick=()=>{phLang=k;pick.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-pressed",String(x===b)))};pick.append(b)});
+  c.append(pick);
+  const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.capture="environment";inp.hidden=true;
+  const gal=document.createElement("input");gal.type="file";gal.accept="image/*";gal.hidden=true;
+  const row=el("div","fxrow");
+  row.append(btn("Tomar foto",()=>inp.click(),true),btn("Elegir de la galería",()=>gal.click()));
+  c.append(row,inp,gal);
+  const prev=document.createElement("img");prev.alt="Foto tomada";prev.hidden=true;prev.style.cssText="width:100%;max-height:260px;object-fit:contain;border-radius:10px;background:var(--en-bg)";
+  const stat=el("p","note");stat.setAttribute("aria-live","polite");
+  c.append(prev,stat);main.append(c);
+  const out=el("div");main.append(out);
+  async function go(file){
+    if(!file||phBusy)return;
+    phBusy=true;out.replaceChildren();prev.hidden=false;
+    const lg=PH_LANGS.find(x=>x[0]===phLang);
+    try{
+      stat.textContent="Preparando la foto…";
+      const blob=await shrink(file);prev.src=URL.createObjectURL(blob);
+      stat.textContent="Cargando el lector de texto…";
+      await loadTess();
+      const w=await Tesseract.createWorker(lg[2],1,{logger:m=>{if(m.status==="recognizing text")stat.textContent="Leyendo el texto… "+Math.round(m.progress*100)+"%";else if(/load/.test(m.status))stat.textContent="Descargando idioma…"}});
+      const r=await w.recognize(blob);await w.terminate();
+      const txt=r.data.text.trim();
+      if(txt.replace(/\s/g,"").length<3){stat.textContent="No se encontró texto. Acércate, enfoca bien y evita reflejos.";return}
+      stat.textContent="Traduciendo…";
+      let es;
+      try{es=await trad(txt,lg[3])}catch(e){es=null}
+      stat.textContent=es?"Listo.":"No se pudo traducir (¿sin internet?). Aquí está el texto leído.";
+      const card=el("div","card");
+      if(es){card.append(el("div","lbl","En español"));card.append(el("p","big",es));card.lastChild.style.cssText="margin:0;font-size:1.2rem;font-weight:700;white-space:pre-wrap";
+        const b=el("div","fxrow");b.append(btn("Copiar",()=>copy(es)),btn("Mostrar en grande",()=>show(txt,es,"Texto de la foto",(lg[0]==="auto"?"":{da:"da-DK",sv:"sv-SE",no:"nb-NO",en:"en-US"}[lg[0]]))));card.append(b)}
+      card.append(el("div","lbl","Texto original"));const o=el("p","en",txt);o.style.whiteSpace="pre-wrap";card.append(o);
+      card.append(btn("Copiar original",()=>copy(txt)));
+      out.append(card);
+    }catch(e){
+      stat.textContent=e.message==="cdn"?"No se pudo cargar el lector de texto. Revisa tu conexión e intenta de nuevo.":"Algo falló al leer la foto. Intenta de nuevo con otra foto.";
+    }finally{phBusy=false}
+  }
+  inp.onchange=gal.onchange=e=>{go(e.target.files[0]);e.target.value=""};
+}
+
 function render(){
   main.replaceChildren();
   const q=$("#q").value.trim().toLowerCase();
@@ -326,6 +401,7 @@ function render(){
   if(cur==="viaje"){itinerary();return}
   if(cur==="lugares"){placesView();return}
   if(cur==="divisas"){fxView();return}
+  if(cur==="foto"){photoView();return}
   if(cur==="ruta"){
     main.append(el("p","note","Una tarjeta por ciudad: hotel, cómo llegar a la estación y qué decir para comprar el siguiente trayecto. Las fechas son las del itinerario actual."));
     const lp=el("div","pickers");
@@ -548,7 +624,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 11 · 27 oct 2026");
+  f.append("Versión 12 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
