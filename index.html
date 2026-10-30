@@ -191,7 +191,7 @@ const GROUPS=[
 ["Emergencia","Necesito ayuda, es una emergencia.","I need help, it's an emergency."],
 ["Médico u hospital","¿Dónde hay un médico u hospital cercano?","Where is the nearest doctor or hospital?"]]}
 ];
-const TABS=[{id:"viaje",t:"Itinerario"},{id:"lugares",t:"Mapas y lugares"},{id:"divisas",t:"Divisas"},{id:"foto",t:"Foto"},{id:"ruta",t:"Frases por ciudad"},...GROUPS.map(g=>({id:g.id,t:g.t}))];
+const TABS=[{id:"viaje",t:"Itinerario"},{id:"lugares",t:"Mapas y lugares"},{id:"divisas",t:"Divisas"},{id:"foto",t:"Foto"},{id:"hablar",t:"Hablar"},{id:"ruta",t:"Frases por ciudad"},...GROUPS.map(g=>({id:g.id,t:g.t}))];
 const $=s=>document.querySelector(s), main=$("#main"), tabsEl=$("#tabs");
 const fills={}; let cur="viaje";
 try{cur=localStorage.getItem("fv-tab")||"viaje"}catch(e){}
@@ -333,25 +333,25 @@ function chunks(text,max){
   text.split(/\n+/).forEach(l=>{l=l.trim();if(!l)return;if(cur&&(cur+"\n"+l).length>max){out.push(cur);cur=""}cur=cur?cur+"\n"+l:l;while(cur.length>max){out.push(cur.slice(0,max));cur=cur.slice(max)}});
   if(cur)out.push(cur);return out;
 }
-async function tradG(text,from){
-  const r=await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl="+encodeURIComponent(from==="Autodetect"?"auto":from)+"&tl=es&q="+encodeURIComponent(text));
+async function tradG(text,from,to){to=to||"es";
+  const r=await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl="+encodeURIComponent(from==="Autodetect"?"auto":from)+"&tl="+to+"&q="+encodeURIComponent(text));
   if(!r.ok)throw new Error("tr");
   const j=await r.json();
   if(!Array.isArray(j[0]))throw new Error("tr");
   return j[0].map(x=>x[0]||"").join("");
 }
-async function tradM(text,from){
+async function tradM(text,from,to){to=to||"es";
   const parts=chunks(text,450),res=[];
   for(const t of parts){
-    const r=await fetch("https://api.mymemory.translated.net/get?q="+encodeURIComponent(t)+"&langpair="+encodeURIComponent(from+"|es"));
+    const r=await fetch("https://api.mymemory.translated.net/get?q="+encodeURIComponent(t)+"&langpair="+encodeURIComponent(from+"|"+to));
     const j=await r.json();
     if(!j.responseData||j.responseStatus&&Number(j.responseStatus)!==200)throw new Error("tr");
     res.push(j.responseData.translatedText);
   }
   return res.join("\n");
 }
-async function trad(text,from){
-  try{return await tradG(text,from)}catch(e){return tradM(text,from)}
+async function trad(text,from,to){
+  try{return await tradG(text,from,to)}catch(e){return tradM(text,from,to)}
 }
 function photoView(){
   main.append(el("h2",null,"Foto → español"));
@@ -398,6 +398,61 @@ function photoView(){
   inp.onchange=gal.onchange=e=>{go(e.target.files[0]);e.target.value=""};
 }
 
+const VX=[["en","Inglés","en-US"],["da","Danés","da-DK"],["sv","Sueco","sv-SE"],["no","Noruego","nb-NO"]];
+let vxLang="en",vxLog=[],vxRec=null;
+function vxView(){
+  main.append(el("h2",null,"Hablar"));
+  main.append(el("p","note","Toca el micrófono y habla. Necesita internet. Frases cortas funcionan mejor; si hay ruido, acerca el celular a la boca."));
+  const c=el("div","card"),pick=el("div","pickers");
+  VX.forEach(([k,n])=>{const b=el("button","tab",n);b.type="button";b.setAttribute("aria-pressed",String(k===vxLang));b.onclick=()=>{vxLang=k;pick.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-pressed",String(x===b)))};pick.append(b)});
+  c.append(el("div","lbl","Idioma de la otra persona"),pick);
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const stat=el("p","note");stat.setAttribute("aria-live","polite");
+  const row=el("div","fxrow");
+  const b1=btn("Hablo yo (español)",()=>listen("es"),true),b2=btn("Habla la otra persona",()=>listen("far"));
+  row.append(b1,b2);c.append(row,stat);main.append(c);
+  const out=el("div");out.style.cssText="display:flex;flex-direction:column;gap:12px";main.append(out);
+  if(!SR){stat.textContent="Este navegador no reconoce voz. En iPhone, abre la app desde Safari o desde el icono instalado.";b1.disabled=b2.disabled=true}
+  function paint(){
+    out.replaceChildren();
+    vxLog.forEach(m=>{
+      const k=el("div","card");
+      k.append(el("div","lbl",m.dir==="es"?"Tú dijiste → "+m.name:m.name+" dijo → español"));
+      k.append(el("p","en",m.src));
+      const big=el("p",null,m.dst);big.style.cssText="margin:0;font-size:1.25rem;font-weight:700;white-space:pre-wrap";k.append(big);
+      const r=el("div","fxrow");
+      if(m.dir==="es")r.append(btn("Repetir voz",()=>speak(m.dst,m.lang),true),btn("Mostrar en grande",()=>show(m.dst,m.src,"Para la otra persona",m.lang)));
+      else r.append(btn("Escuchar",()=>speak(m.dst,"es-ES")));
+      r.append(btn("Copiar",()=>copy(m.dst)));k.append(r);out.append(k);
+    });
+  }
+  function listen(dir){
+    if(vxRec){try{vxRec.stop()}catch(e){}return}
+    const V=VX.find(x=>x[0]===vxLang);
+    try{if(window.speechSynthesis){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(""))}}catch(e){}
+    const rec=new SR();vxRec=rec;
+    rec.lang=dir==="es"?"es-CO":V[2];rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+    const act=dir==="es"?b1:b2,old=act.textContent;act.textContent="Escuchando… toca para parar";
+    let txt="",err="";
+    rec.onresult=e=>{txt=Array.from(e.results).map(r=>r[0].transcript).join(" ").trim();stat.textContent="“"+txt+"”"};
+    rec.onerror=e=>{err=e.error};
+    rec.onend=async()=>{
+      vxRec=null;act.textContent=old;
+      if(err==="not-allowed"||err==="service-not-allowed"){stat.textContent="Falta el permiso del micrófono. En Ajustes del iPhone, permite el micrófono y el reconocimiento de voz para Safari.";return}
+      if(!txt){stat.textContent=err==="network"?"Sin conexión para reconocer la voz.":"No se oyó nada. Intenta de nuevo.";return}
+      stat.textContent="Traduciendo…";
+      try{
+        const dst=dir==="es"?await trad(txt,"es",V[0]):await trad(txt,V[0],"es");
+        vxLog.unshift({dir,name:V[1],lang:V[2],src:txt,dst});vxLog=vxLog.slice(0,8);
+        stat.textContent="";paint();
+        if(dir==="es")speak(dst,V[2]);else speak(dst,"es-ES");
+      }catch(e){stat.textContent="No se pudo traducir. Revisa la conexión."}
+    };
+    try{rec.start();stat.textContent="Habla ahora…"}catch(e){vxRec=null;act.textContent=old;stat.textContent="No se pudo iniciar el micrófono."}
+  }
+  paint();
+}
+
 function render(){
   main.replaceChildren();
   const q=$("#q").value.trim().toLowerCase();
@@ -412,6 +467,7 @@ function render(){
   if(cur==="lugares"){placesView();return}
   if(cur==="divisas"){fxView();return}
   if(cur==="foto"){photoView();return}
+  if(cur==="hablar"){vxView();return}
   if(cur==="ruta"){
     main.append(el("p","note","Una tarjeta por ciudad: hotel, cómo llegar a la estación y qué decir para comprar el siguiente trayecto. Las fechas son las del itinerario actual."));
     const lp=el("div","pickers");
@@ -661,7 +717,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 14 · 29 oct 2026");
+  f.append("Versión 15 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
