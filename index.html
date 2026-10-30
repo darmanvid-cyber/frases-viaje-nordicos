@@ -415,6 +415,7 @@ function vxView(){
   if(!SR){stat.textContent="Este navegador no reconoce voz. En iPhone, abre la app desde Safari o desde el icono instalado.";b1.disabled=b2.disabled=true}
   function paint(){
     out.replaceChildren();
+    if(vxLog.length)out.append(btn("Limpiar",()=>{vxLog=[];stat.textContent="";paint()}));
     vxLog.forEach(m=>{
       const k=el("div","card");
       k.append(el("div","lbl",m.dir==="es"?"Tú dijiste → "+m.name:m.name+" dijo → español"));
@@ -717,7 +718,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 15 · 29 oct 2026");
+  f.append("Versión 16 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
