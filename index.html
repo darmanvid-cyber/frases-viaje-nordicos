@@ -524,7 +524,7 @@ function mapCard(P,name,desc,q,m,cls){
     if(open){const f=document.createElement("iframe");f.className="mapbox";f.loading="lazy";f.title="Mapa: "+name;f.src=eUrl(P.hotel,q,m);holder.append(f,el("p","note","El mapa necesita internet."))}
     tg.textContent=open?"Ocultar mapa":"Ver mapa";
   },true);
-  r.append(tg,link("Google Maps",gUrl(P.hotel,q,m)),link("Apple Maps",aUrl(P.hotel,q,m)));
+  r.append(tg,link("Pedir Uber",uberUrl(q)),link("Google Maps",gUrl(P.hotel,q,m)),link("Apple Maps",aUrl(P.hotel,q,m)));
   c.append(r,holder);return c;
 }
 function placesView(){
@@ -599,6 +599,32 @@ function hotelForm(i){
   f.append(r);return f;
 }
 applyHotels();
+function uberUrl(addr){return "https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff%5Bformatted_address%5D="+encodeURIComponent(addr)}
+function autoStop(){
+  const n=new Date(),d=n.getFullYear()*10000+(n.getMonth()+1)*100+n.getDate();
+  if(d>=20261125)return 5;if(d>=20261124)return 5;if(d>=20261115)return 4;if(d>=20261114)return 3;if(d>=20261113)return 2;if(d>=20261110)return 1;return 0;
+}
+let hsel=null;
+function hotelCard(){
+  const i=hsel==null?autoStop():hsel,x=CITIES[i],L=LOCAL[i];
+  const c=el("div","card route");
+  c.append(el("div","lbl","Mi hotel"));
+  const pk=el("div","pickers");
+  STOPS.forEach((t,j)=>{const b=el("button","tab",t.city+(j===5?" (final)":""));b.type="button";b.setAttribute("aria-pressed",String(j===i));b.onclick=()=>{hsel=j;render()};pk.append(b)});
+  c.append(pk);
+  c.append(el("h3",null,x.h),el("p","note",x.a));
+  c.append(el("div","lbl","Para el conductor · "+L.name));
+  c.append(el("p","en",L.taxi));
+  const r=el("div","row");
+  r.append(link("Pedir Uber al hotel",uberUrl(x.h+", "+x.a)));
+  r.append(btn("Mostrar en grande",()=>show(L.taxi,"Llévame a "+x.h+", "+x.a,"Para el conductor",L.lang),true));
+  r.append(link("Cómo llegar","https://maps.apple.com/?daddr="+enc(x.h+", "+x.a)+"&dirflg=r"));
+  r.append(btn("Copiar dirección",()=>copy(x.h+", "+x.a)));
+  c.append(r);
+  c.append(el("p","note","Uber abre la app con el hotel ya como destino; solo confirma el recogido y pide. Funciona si Uber está instalado."));
+  return c;
+}
+
 function itinerary(){
   const h=el("div","hero");
   h.append(el("div","aur"),el("div","stars"));
@@ -610,6 +636,7 @@ function itinerary(){
   h.append(el("p",null,"Copenhague, Estocolmo, Oslo, Bergen y Tromsø, hasta el 25 de noviembre."));
   const ch=el("div","chips");["6 hoteles","6 trayectos","Auroras en Tromsø","Vuelo a Bogotá 25 nov · 6:00"].forEach(t=>ch.append(el("span",null,t)));
   h.append(ch);main.append(h);
+  main.append(hotelCard());
   STOPS.forEach((x,i)=>{
     const c=el("div","card stop");
     c.append(sceneEl(x.k,x.city,x.date));
@@ -634,7 +661,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 13 · 29 oct 2026");
+  f.append("Versión 14 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
