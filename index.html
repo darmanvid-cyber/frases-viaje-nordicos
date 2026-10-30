@@ -410,7 +410,7 @@ const VX=[["en","Inglés","en-US"],["da","Danés","da-DK"],["sv","Sueco","sv-SE"
 let vxEs="",vxLang="en",vxLog=[],vxRec=null;
 function vxView(){
   main.append(el("h2",null,"Hablar"));
-  main.append(el("p","note","Toca el micrófono y habla. Necesita internet. Frases cortas funcionan mejor; si hay ruido, acerca el celular a la boca."));
+  main.append(el("p","note","Toca el micrófono y habla, o escribe el texto. Necesita internet. Frases cortas funcionan mejor; si hay ruido, acerca el celular a la boca."));
   const c=el("div","card"),pick=el("div","pickers");
   VX.forEach(([k,n])=>{const b=el("button","tab",n);b.type="button";b.setAttribute("aria-pressed",String(k===vxLang));b.onclick=()=>{vxLang=k;pick.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-pressed",String(x===b)))};pick.append(b)});
   c.append(el("div","lbl","Idioma de la otra persona"),pick);
@@ -418,7 +418,22 @@ function vxView(){
   const stat=el("p","note");stat.setAttribute("aria-live","polite");
   const row=el("div","fxrow");
   const b1=btn("Hablo yo (español)",()=>listen("es"),true),b2=btn("Habla la otra persona",()=>listen("far"));
-  row.append(b1,b2);c.append(row,stat);main.append(c);
+  row.append(b1,b2);c.append(row);
+  const ta=el("textarea");ta.rows=2;ta.placeholder="O escribe aquí…";ta.setAttribute("aria-label","Texto para traducir");
+  ta.style.cssText="width:100%;box-sizing:border-box;font:inherit;padding:10px 12px;border:2px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);resize:vertical";
+  const trow=el("div","fxrow");
+  trow.append(btn("Traducir mi texto",()=>typed("es"),true),btn("Texto de la otra persona",()=>typed("far")));
+  c.append(ta,trow,stat);main.append(c);
+  async function typed(dir){
+    const txt=ta.value.trim();if(!txt){stat.textContent="Escribe algo primero.";return}
+    const V=VX.find(x=>x[0]===vxLang);stat.textContent="Traduciendo…";
+    try{
+      const dst=dir==="es"?await trad(txt,"es",V[0]):await trad(txt,V[0],"es");
+      vxLog.unshift({dir,name:V[1],lang:V[2],src:txt,dst});vxLog=vxLog.slice(0,8);
+      stat.textContent="";if(dir==="es")ta.value="";paint();
+      if(dir==="es")speak(dst,V[2]);
+    }catch(e){stat.textContent="No se pudo traducir. Revisa la conexión."}
+  }
   const out=el("div");out.style.cssText="display:flex;flex-direction:column;gap:12px";main.append(out);
   if(!SR){stat.textContent="Este navegador no reconoce voz. En iPhone, abre la app desde Safari o desde el icono instalado.";b1.disabled=b2.disabled=true}
   function paint(){
@@ -444,7 +459,10 @@ function vxView(){
     });
   }
   function listen(dir){
-    if(vxRec){try{vxRec.stop()}catch(e){}return}
+    if(vxRec){
+      const old=vxRec;try{old.stop()}catch(e){}
+      setTimeout(()=>{if(vxRec===old){try{old.abort()}catch(e){}vxRec=null;b1.textContent="Hablo yo (español)";b2.textContent="Habla la otra persona";stat.textContent="Se reinició el micrófono. Toca de nuevo."}},1500);
+      return}
     const V=VX.find(x=>x[0]===vxLang);
     try{if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}
     const rec=new SR();vxRec=rec;
@@ -454,6 +472,7 @@ function vxView(){
     rec.onresult=e=>{txt=Array.from(e.results).map(r=>r[0].transcript).join(" ").trim();stat.textContent="“"+txt+"”"};
     rec.onerror=e=>{err=e.error};rec.onspeechstart=()=>{stat.textContent="Te oigo…"};
     rec.onend=async()=>{
+      if(vxRec!==rec)return;
       vxRec=null;act.textContent=old;
       if(err==="not-allowed"||err==="service-not-allowed"){stat.textContent="Falta el permiso del micrófono. En Ajustes del iPhone, permite el micrófono y el reconocimiento de voz para Safari.";return}
       if(err==="language-not-supported"&&dir==="es"&&!vxEs){vxEs="es-ES";stat.textContent="Probando otro acento del español… toca de nuevo.";return}
@@ -735,7 +754,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 20 · 29 oct 2026");
+  f.append("Versión 21 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
