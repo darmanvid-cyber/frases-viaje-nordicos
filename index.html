@@ -207,7 +207,15 @@ function copy(text){
 }
 function speak(text,lang){
   if(!window.speechSynthesis){toast("Sin voz en este dispositivo");return}
-  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=lang||"en-US";u.rate=.9;speechSynthesis.speak(u);
+  lang=lang||"en-US";
+  const vs=speechSynthesis.getVoices(),pre=lang.slice(0,2).toLowerCase();
+  const v=vs.find(x=>x.lang.replace("_","-")===lang)||vs.find(x=>x.lang.toLowerCase().startsWith(pre));
+  if(vs.length&&!v)toast("No hay voz instalada para este idioma");
+  speechSynthesis.cancel();
+  setTimeout(()=>{
+    const u=new SpeechSynthesisUtterance(text);u.lang=v?v.lang:lang;if(v)u.voice=v;u.rate=.9;
+    speechSynthesis.resume();speechSynthesis.speak(u);
+  },120);
 }
 let showEn="",showLang="en-US";
 function show(en,es,lbl,lang){showEn=en;showLang=lang||"en-US";$("#showEn").textContent=en;$("#showEs").textContent=es;$("#showLbl").textContent=lbl||"Para el personal · For staff";$("#show").hidden=false}
@@ -719,7 +727,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 18 · 29 oct 2026");
+  f.append("Versión 19 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
