@@ -453,7 +453,7 @@ function vxView(){
         };lp.append(b)});
         k.append(el("div","lbl","Traducir a otro idioma"),lp);
       }
-      if(m.dir==="es")r.append(btn("Repetir voz",()=>speak(m.dst,m.lang),true),btn("Mostrar en grande",()=>show(m.dst,m.src,"Para la otra persona",m.lang)));
+      if(m.dir==="es")r.append(btn("Decirlo en voz alta",()=>speak(m.dst,m.lang),true),btn("Mostrar en grande",()=>show(m.dst,m.src,"Para la otra persona",m.lang)));
       else r.append(btn("Escuchar",()=>speak(m.dst,"es-ES")));
       r.append(btn("Copiar",()=>copy(m.dst)));k.append(r);out.append(k);
     });
@@ -754,7 +754,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 21 · 29 oct 2026");
+  f.append("Versión 22 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
