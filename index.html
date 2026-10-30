@@ -313,7 +313,7 @@ function fxView(){
   fxPaint();
   if(!FX.live)fxLoad();
 }
-const PH_LANGS=[["auto","Auto","dan+swe+nor+eng","Autodetect"],["da","Danés","dan","da"],["sv","Sueco","swe","sv"],["no","Noruego","nor","no"],["en","Inglés","eng","en"]];
+const PH_LANGS=[["auto","Auto","dan+swe+nor+eng+deu","Autodetect"],["da","Danés","dan","da"],["sv","Sueco","swe","sv"],["no","Noruego","nor","no"],["en","Inglés","eng","en"],["de","Alemán","deu","de"]];
 let phLang="auto",phBusy=false,tessP=null;
 function loadTess(){
   if(window.Tesseract)return Promise.resolve();
@@ -387,7 +387,7 @@ function photoView(){
       stat.textContent=es?"Listo.":"No se pudo traducir (¿sin internet?). Aquí está el texto leído.";
       const card=el("div","card");
       if(es){card.append(el("div","lbl","En español"));card.append(el("p","big",es));card.lastChild.style.cssText="margin:0;font-size:1.2rem;font-weight:700;white-space:pre-wrap";
-        const b=el("div","fxrow");b.append(btn("Copiar",()=>copy(es)),btn("Mostrar en grande",()=>show(txt,es,"Texto de la foto",(lg[0]==="auto"?"":{da:"da-DK",sv:"sv-SE",no:"nb-NO",en:"en-US"}[lg[0]]))));card.append(b)}
+        const b=el("div","fxrow");b.append(btn("Copiar",()=>copy(es)),btn("Mostrar en grande",()=>show(txt,es,"Texto de la foto",(lg[0]==="auto"?"":{da:"da-DK",sv:"sv-SE",no:"nb-NO",en:"en-US",de:"de-DE"}[lg[0]]))));card.append(b)}
       card.append(el("div","lbl","Texto original"));const o=el("p","en",txt);o.style.whiteSpace="pre-wrap";card.append(o);
       card.append(btn("Copiar original",()=>copy(txt)));
       out.append(card);
@@ -398,7 +398,7 @@ function photoView(){
   inp.onchange=gal.onchange=e=>{go(e.target.files[0]);e.target.value=""};
 }
 
-const VX=[["en","Inglés","en-US"],["da","Danés","da-DK"],["sv","Sueco","sv-SE"],["no","Noruego","nb-NO"]];
+const VX=[["en","Inglés","en-US"],["da","Danés","da-DK"],["sv","Sueco","sv-SE"],["no","Noruego","nb-NO"],["de","Alemán","de-DE"]];
 let vxLang="en",vxLog=[],vxRec=null;
 function vxView(){
   main.append(el("h2",null,"Hablar"));
@@ -718,7 +718,7 @@ renderTabs();render();
 </script>
 <script>(function(){
   var f=document.createElement("div");f.className="ver";
-  f.append("Versión 16 · 29 oct 2026");
+  f.append("Versión 17 · 29 oct 2026");
   var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Actualizar app";
   b.onclick=function(){
     b.textContent="Actualizando…";
